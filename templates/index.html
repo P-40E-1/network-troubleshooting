@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Toolkit</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<canvas id="matrix"></canvas>
+<div class="content">
+    <!-- your existing UI here -->
+
+    <div class="container">
+        <h1>🌐 Network Troubleshooting Toolkit</h1>
+        <p>Test connectivity, DNS, routes and ports.</p>
+
+        <div class="grid">
+            <form action="/ping" method="post" class="card">
+                <h2>Ping</h2>
+                <input type="text" name="host" placeholder="Enter IP or domain">
+                <button type="submit">Run Ping</button>
+            </form>
+
+            <form action="/tracert" method="post" class="card">
+                <h2>Traceroute</h2>
+                <input type="text" name="host" placeholder="Enter IP or domain">
+                <button type="submit">Run Tracert</button>
+            </form>
+
+            <form action="/nslookup" method="post" class="card">
+                <h2>NSLookup</h2>
+                <input type="text" name="host" placeholder="Enter domain">
+                <button type="submit">Lookup DNS</button>
+            </form>
+
+            <form action="/reverse_dns" method="post" class="card">
+                <h2>IP to DNS</h2>
+                <input type="text" name="host" placeholder="Enter IP">
+                <button type="submit">Reverse Lookup</button>
+            </form>
+
+            <form action="/portscan" method="post" class="card">
+                <h2>Port Scan</h2>
+                <input type="text" name="host" placeholder="Enter IP or domain">
+                <button type="submit">Scan Ports</button>
+            </form>
+
+            <a href="/myip" class="card link-card">
+                <h2>My IP</h2>
+                <button>Show My IP</button>
+            </a>
+        </div>
+    </div>
+    </div>
+
+<script>
+const canvas = document.getElementById("matrix");
+const ctx = canvas.getContext("2d");
+
+// Full screen
+canvas.height = window.innerHeight;
+canvas.width = window.innerWidth;
+
+const letters = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%^&*";
+const lettersArray = letters.split("");
+
+const fontSize = 14;
+const columns = canvas.width / fontSize;
+
+const drops = [];
+
+for (let x = 0; x < columns; x++) {
+    drops[x] = 1;
+}
+
+function drawMatrix() {
+    ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#00ff00";
+    ctx.font = fontSize + "px monospace";
+
+    for (let i = 0; i < drops.length; i++) {
+        const text = lettersArray[Math.floor(Math.random() * lettersArray.length)];
+        ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+        }
+        drops[i]++;
+    }
+}
+
+setInterval(drawMatrix, 33);
+
+// resize fix
+window.addEventListener("resize", () => {
+    canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth;
+});
+</script>
+</body>
+</html>
