@@ -4,6 +4,9 @@ import socket
 import requests
 import ssl
 import tempfile
+import ipaddress
+import re
+from urllib.parse import urlparse
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -14,20 +17,78 @@ app = Flask(__name__)
 def index():
     return render_template("index.html")
 
+#Input Validation for IP
+def is_safe_host(host):
+    try:
+        # If it's already an IP
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            # resolve domain to IP
+            resolved_ip = socket.gethostbyname(host)
+            ip = ipaddress.ip_address(resolved_ip)
+
+        # Block ALL internal / unsafe ranges
+        if (
+            ip.is_private or
+            ip.is_loopback or
+            ip.is_reserved or
+            ip.is_link_local or
+            ip.is_multicast
+        ):
+            return False
+
+        return True
+
+    except Exception:
+        return False
+
+#Input validation for URL
+def is_safe_url(url):
+    try:
+        parsed = urlparse(url)
+
+        if parsed.scheme not in ["http", "https"]:
+            return False
+
+        if not parsed.hostname:
+            return False
+
+        return is_safe_host(parsed.hostname)
+
+    except Exception:
+        return False
+
 
 # Ping
 @app.route("/ping", methods=["POST"])
 def ping():
     host = request.json.get("host")
+
+
+    if not host:
+        return jsonify({"error": "No host provided"}), 400
+
+    if not is_safe_host(host):
+        return jsonify({"error": "Invalid or blocked host"}), 400
+
     try:
+        cmd = ["ping", "-c", "4", host] if subprocess.os.name != "nt" else ["ping", "-n", "4", host]
+
         result = subprocess.check_output(
-            ["ping", "-n" if subprocess.os.name == "nt" else "-c", "4", host],
+            cmd,
             stderr=subprocess.STDOUT,
-            universal_newlines=True
+            text=True,
+            timeout=10
         )
+
         return result
-    except Exception as e:
-        return str(e)
+
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "Ping timed out"}), 504
+
+    except Exception:
+        return jsonify({"error": "Ping failed"}), 500
 
 
 # Traceroute
@@ -97,6 +158,8 @@ def geoip():
 @app.route("/http_headers", methods=["POST"])
 def http_headers():
     url = request.json.get("url")
+    if not url or not is_safe_url(url):
+        return jsonify({"error": "Invalid or unsafe URL"}), 400
     try:
         headers = requests.get(url, timeout=5).headers
         return "\n".join([f"{k}: {v}" for k, v in headers.items()])
@@ -111,7 +174,7 @@ def ssl_check():
     try:
         cert = ssl.get_server_certificate((host, 443))
 
-        with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".pem") as f:
+        with tempfile.NamedTemporaryFile(delete=True, mode="w", suffix=".pem") as f:
             f.write(cert)
             cert_path = f.name
 
@@ -128,4 +191,4 @@ def ssl_check():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False)
