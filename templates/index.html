@@ -3,101 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Toolkit</title>
+    <title>⚡ Network Toolkit</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 </head>
 <body>
+
 <canvas id="matrix"></canvas>
+
 <div class="content">
-    <!-- your existing UI here -->
-
     <div class="container">
-        <h1>🌐 Network Troubleshooting Toolkit</h1>
-        <p>Test connectivity, DNS, routes and ports.</p>
+        <header class="hero">
+            <h1>⚡ Network Toolkit</h1>
+            <p>Your futuristic dashboard for network diagnostics & monitoring</p>
+        </header>
 
-        <div class="grid">
-            <form action="/ping" method="post" class="card">
-                <h2>Ping</h2>
-                <input type="text" name="host" placeholder="Enter IP or domain">
-                <button type="submit">Run Ping</button>
+        <div class="result-section">
+            <h2>⚡ Quick Tool Runner</h2>
+            <p>Run diagnostics instantly.</p>
+
+            <form id="quickToolForm">
+                <input type="text" id="targetInput" placeholder="Enter IP / Domain / URL" required>
+
+               <div class="select-wrapper">
+                    <select id="toolSelect">
+                        <option value="ping">📡 Ping</option>
+                        <option value="tracert">🛣 Traceroute</option>
+                        <option value="nslookup">🔍 NSLookup</option>
+                        <option value="portscan">🚪 Port Scan</option>
+                        <option value="geoip">🌍 GeoIP Lookup</option>
+                        <option value="http_headers">📄 HTTP Headers</option>
+                        <option value="ssl_check">🔐 SSL Check</option>
+                    </select>
+               </div>
+
+                <button type="submit">Run</button>
             </form>
 
-            <form action="/tracert" method="post" class="card">
-                <h2>Traceroute</h2>
-                <input type="text" name="host" placeholder="Enter IP or domain">
-                <button type="submit">Run Tracert</button>
-            </form>
-
-            <form action="/nslookup" method="post" class="card">
-                <h2>NSLookup</h2>
-                <input type="text" name="host" placeholder="Enter domain">
-                <button type="submit">Lookup DNS</button>
-            </form>
-
-            <form action="/reverse_dns" method="post" class="card">
-                <h2>IP to DNS</h2>
-                <input type="text" name="host" placeholder="Enter IP">
-                <button type="submit">Reverse Lookup</button>
-            </form>
-
-            <form action="/portscan" method="post" class="card">
-                <h2>Port Scan</h2>
-                <input type="text" name="host" placeholder="Enter IP or domain">
-                <button type="submit">Scan Ports</button>
-            </form>
-
-            <a href="/myip" class="card link-card">
-                <h2>My IP</h2>
-                <button>Show My IP</button>
-            </a>
+            <div class="output-box">
+                <h3>📄 Results</h3>
+                <pre id="resultOutput">Waiting for input...</pre>
+            </div>
         </div>
     </div>
-    </div>
+</div>
 
 <script>
 const canvas = document.getElementById("matrix");
 const ctx = canvas.getContext("2d");
 
-// Full screen
 canvas.height = window.innerHeight;
 canvas.width = window.innerWidth;
 
 const letters = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%^&*";
 const lettersArray = letters.split("");
-
 const fontSize = 14;
 const columns = canvas.width / fontSize;
-
 const drops = [];
 
-for (let x = 0; x < columns; x++) {
-    drops[x] = 1;
-}
+for (let x = 0; x < columns; x++) drops[x] = 1;
 
 function drawMatrix() {
-    ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "#00ff00";
+    ctx.fillStyle = "#11ff00";
     ctx.font = fontSize + "px monospace";
 
     for (let i = 0; i < drops.length; i++) {
         const text = lettersArray[Math.floor(Math.random() * lettersArray.length)];
         ctx.fillText(text, i * fontSize, drops[i] * fontSize);
 
-        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-            drops[i] = 0;
-        }
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
         drops[i]++;
     }
 }
 
-setInterval(drawMatrix, 33);
+setInterval(drawMatrix, 35);
 
-// resize fix
 window.addEventListener("resize", () => {
     canvas.height = window.innerHeight;
     canvas.width = window.innerWidth;
+});
+</script>
+<script>
+document.getElementById("quickToolForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
+
+    const target = document.getElementById("targetInput").value;
+    const tool = document.getElementById("toolSelect").value;
+    const output = document.getElementById("resultOutput");
+
+    output.textContent = "Running " + tool + "...";
+
+    try {
+        const response = await fetch(`/${tool}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                host: target,
+                url: target
+            })
+        });
+
+        const result = await response.text();
+        output.textContent = result;
+    } catch (error) {
+        output.textContent = "Error: " + error.message;
+    }
 });
 </script>
 </body>

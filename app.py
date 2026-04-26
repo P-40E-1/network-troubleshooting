@@ -1,69 +1,131 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
 import subprocess
+import socket
+import requests
+import ssl
+import tempfile
+from datetime import datetime
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return render_template('index.html')
+# Home page
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-@app.route('/ping', methods=['POST'])
+
+# Ping
+@app.route("/ping", methods=["POST"])
 def ping():
-    host = request.form['host']
-    result = subprocess.run(
-        ['ping', '-n', '4', host],  # use -c on Linux
-        capture_output=True,
-        text=True
-    )
-    return render_template('result.html', output=result.stdout)
-
-
-@app.route('/tracert', methods=['POST'])
-def tracert():
-    host = request.form['host']
-    result = subprocess.run(['tracert', host], capture_output=True, text=True)
-    return render_template('result.html', output=result.stdout)
-
-@app.route('/nslookup', methods=['POST'])
-def nslookup():
-    host = request.form['host']
-    result = subprocess.run(['nslookup', host], capture_output=True, text=True)
-    return render_template('result.html', output=result.stdout)
-
-@app.route('/myip')
-def myip():
-    ip = request.remote_addr
-    return render_template('result.html', output=f"Your IP: {ip}")
-
-import socket
-
-@app.route('/reverse_dns', methods=['POST'])
-def reverse_dns():
-    ip = request.form['host']
+    host = request.json.get("host")
     try:
-        hostname = socket.gethostbyaddr(ip)
-        output = hostname[0]
-    except:
-        output = "No PTR record found."
-    return render_template('result.html', output=output)
+        result = subprocess.check_output(
+            ["ping", "-n" if subprocess.os.name == "nt" else "-c", "4", host],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+        return result
+    except Exception as e:
+        return str(e)
 
-import socket
 
-@app.route('/portscan', methods=['POST'])
+# Traceroute
+@app.route("/tracert", methods=["POST"])
+def tracert():
+    host = request.json.get("host")
+    command = "tracert" if subprocess.os.name == "nt" else "traceroute"
+    try:
+        result = subprocess.check_output(
+            [command, host],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+        return result
+    except Exception as e:
+        return str(e)
+
+
+# NSLookup
+@app.route("/nslookup", methods=["POST"])
+def nslookup():
+    host = request.json.get("host")
+    try:
+        result = subprocess.check_output(
+            ["nslookup", host],
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+        return result
+    except Exception as e:
+        return str(e)
+
+
+# Port Scan
+@app.route("/portscan", methods=["POST"])
 def portscan():
-    host = request.form['host']
-    ports = [21, 22, 80, 443, 3306]
-    output = ""
-    for port in ports:
-        s = socket.socket()
-        s.settimeout(1)
-        result = s.connect_ex((host, port))
-        if result == 0:
-            output += f"Port {port} is OPEN\n"
-        else:
-            output += f"Port {port} is CLOSED\n"
-        s.close()
-    return render_template('result.html', output=output)
+    host = request.json.get("host")
+    common_ports = [21, 22, 23, 25, 53, 80, 110, 139, 143, 443, 445, 3306, 3389]
+    output = f"Scanning {host}...\n\n"
 
-if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False)
+    try:
+        ip = socket.gethostbyname(host)
+        for port in common_ports:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.5)
+            result = sock.connect_ex((ip, port))
+            if result == 0:
+                output += f"[OPEN] Port {port}\n"
+            sock.close()
+        return output
+    except Exception as e:
+        return str(e)
+
+
+# GeoIP Lookup
+@app.route("/geoip", methods=["POST"])
+def geoip():
+    host = request.json.get("host")
+    try:
+        res = requests.get(f"http://ip-api.com/json/{host}").json()
+        return "\n".join([f"{k}: {v}" for k, v in res.items()])
+    except Exception as e:
+        return str(e)
+
+
+# HTTP Headers
+@app.route("/http_headers", methods=["POST"])
+def http_headers():
+    url = request.json.get("url")
+    try:
+        headers = requests.get(url, timeout=5).headers
+        return "\n".join([f"{k}: {v}" for k, v in headers.items()])
+    except Exception as e:
+        return str(e)
+
+
+# SSL Check
+@app.route("/ssl_check", methods=["POST"])
+def ssl_check():
+    host = request.json.get("host")
+    try:
+        cert = ssl.get_server_certificate((host, 443))
+
+        with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".pem") as f:
+            f.write(cert)
+            cert_path = f.name
+
+        x509 = ssl._ssl._test_decode_cert(cert_path)
+
+        output = f"Issuer: {x509.get('issuer')}\n"
+        output += f"Subject: {x509.get('subject')}\n"
+        output += f"Valid From: {x509.get('notBefore')}\n"
+        output += f"Valid To: {x509.get('notAfter')}\n"
+
+        return output
+    except Exception as e:
+        return str(e)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
