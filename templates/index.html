@@ -26,17 +26,22 @@
             <form id="quickToolForm">
                 <input type="text" id="targetInput" placeholder="Enter IP / Domain / URL" required>
 
-               <div class="select-wrapper">
-                    <select id="toolSelect">
-                        <option value="ping">📡 Ping</option>
-                        <option value="tracert">🛣 Traceroute</option>
-                        <option value="nslookup">🔍 NSLookup</option>
-                        <option value="portscan">🚪 Port Scan</option>
-                        <option value="geoip">🌍 GeoIP Lookup</option>
-                        <option value="http_headers">📄 HTTP Headers</option>
-                        <option value="ssl_check">🔐 SSL Check</option>
-                    </select>
-               </div>
+                <div class="select-wrapper">
+                    <div class="selected" id="selectedBox">
+                        <span id="selectedText">📡 Ping</span>
+                        <span class="arrow" id="arrow">▼</span>
+                    </div>
+
+                    <div class="options" id="optionsBox">
+                        <div class="option" data-value="ping">📡 Ping</div>
+                        <div class="option" data-value="tracert">🛣 Traceroute</div>
+                        <div class="option" data-value="nslookup">🔍 NSLookup</div>
+                        <div class="option" data-value="portscan">🚪 Port Scan</div>
+                        <div class="option" data-value="geoip">🌍 GeoIP Lookup</div>
+                        <div class="option" data-value="http_headers">📄 HTTP Headers</div>
+                        <div class="option" data-value="ssl_check">🔐 SSL Check</div>
+                    </div>
+                </div>
 
                 <button type="submit">Run</button>
             </form>
@@ -50,6 +55,7 @@
 </div>
 
 <script>
+// MATRIX EFFECT
 const canvas = document.getElementById("matrix");
 const ctx = canvas.getContext("2d");
 
@@ -59,7 +65,7 @@ canvas.width = window.innerWidth;
 const letters = "01ABCDEFGHIJKLMNOPQRSTUVWXYZ@#$%^&*";
 const lettersArray = letters.split("");
 const fontSize = 14;
-const columns = canvas.width / fontSize;
+const columns = Math.floor(canvas.width / fontSize);
 const drops = [];
 
 for (let x = 0; x < columns; x++) drops[x] = 1;
@@ -75,7 +81,9 @@ function drawMatrix() {
         const text = lettersArray[Math.floor(Math.random() * lettersArray.length)];
         ctx.fillText(text, i * fontSize, drops[i] * fontSize);
 
-        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+        if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+            drops[i] = 0;
+        }
         drops[i]++;
     }
 }
@@ -87,18 +95,56 @@ window.addEventListener("resize", () => {
     canvas.width = window.innerWidth;
 });
 </script>
+
 <script>
+// CUSTOM DROPDOWN
+const selectedBox = document.getElementById("selectedBox");
+const optionsBox = document.getElementById("optionsBox");
+const selectedText = document.getElementById("selectedText");
+const arrow = document.getElementById("arrow");
+const options = document.querySelectorAll(".option");
+
+let selectedTool = "ping";
+
+selectedBox.addEventListener("click", () => {
+    optionsBox.classList.toggle("show");
+    arrow.classList.toggle("open");
+});
+
+options.forEach(option => {
+    option.addEventListener("click", () => {
+        selectedText.textContent = option.textContent;
+        selectedTool = option.dataset.value;
+        optionsBox.classList.remove("show");
+        arrow.classList.remove("open");
+    });
+});
+
+document.addEventListener("click", (e) => {
+    if (!e.target.closest(".select-wrapper")) {
+        optionsBox.classList.remove("show");
+        arrow.classList.remove("open");
+    }
+});
+</script>
+
+<script>
+// FORM SUBMIT
 document.getElementById("quickToolForm").addEventListener("submit", async function(e) {
     e.preventDefault();
 
-    const target = document.getElementById("targetInput").value;
-    const tool = document.getElementById("toolSelect").value;
+    const target = document.getElementById("targetInput").value.trim();
     const output = document.getElementById("resultOutput");
 
-    output.textContent = "Running " + tool + "...";
+    if (!target) {
+        output.textContent = "Please enter a target.";
+        return;
+    }
+
+    output.textContent = "Running " + selectedTool + "...";
 
     try {
-        const response = await fetch(`/${tool}`, {
+        const response = await fetch(`/${selectedTool}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -116,5 +162,6 @@ document.getElementById("quickToolForm").addEventListener("submit", async functi
     }
 });
 </script>
+
 </body>
 </html>
